@@ -1,0 +1,177 @@
+<html lang="en"><head><meta charset="utf-8"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><title>Testing · Clowne</title><meta name="viewport" content="width=device-width"/><meta name="generator" content="Docusaurus"/><meta property="og:title" content="Testing · Clowne"/><meta property="og:type" content="website"/><meta property="og:url" content="http://clowne.evilmartians.io/index.html"/><meta property="og:description" content="Clowne provides specific tools to help you test your cloners."/><link rel="shortcut icon" href="/img/favicon/favicon.ico"/><link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/atom-one-light.min.css"/><script type="text/javascript" src="https://buttons.github.io/buttons.js"></script><link rel="stylesheet" href="/css/main.css"/></head><body class="sideNavVisible"><div class="fixedHeaderContainer"><div class="headerWrapper wrapper"><header><a href="/"><h2 class="headerTitle">Clowne</h2></a><div class="navigationWrapper navigationSlider"><nav class="slidingNav"><ul class="nav-site nav-site-internal"><li><a href="/docs/basic_example.html" target="_self">Docs</a></li><li><a href="https://github.com/palkan/clowne" target="_self">GitHub</a></li></ul></nav></div></header></div></div><div class="navPusher"><div class="docMainWrapper wrapper"><div class="container docsNavContainer" id="docsNav"><nav class="toc"><div class="toggleNav"><section class="navWrapper wrapper"><div class="navBreadcrumb wrapper"><div class="navToggle" id="navToggler"><i></i></div><h2><i>›</i><span>Features</span></h2></div><div class="navGroups"><div class="navGroup navGroupActive"><h3>Getting Started</h3><ul><li class="navListItem"><a class="navItem" href="/docs/installation.html">Installation</a></li><li class="navListItem"><a class="navItem" href="/docs/basic_example.html">Basic Example</a></li><li class="navListItem"><a class="navItem" href="/docs/configuration.html">Configuration</a></li><li class="navListItem"><a class="navItem" href="/docs/alternatives.html">Motivation &amp; Alternatives</a></li></ul></div><div class="navGroup navGroupActive"><h3>API</h3><ul><li class="navListItem"><a class="navItem" href="/docs/include_association.html">Include Association</a></li><li class="navListItem"><a class="navItem" href="/docs/exclude_association.html">Exclude Association</a></li><li class="navListItem"><a class="navItem" href="/docs/nullify.html">Nullify</a></li><li class="navListItem"><a class="navItem" href="/docs/finalize.html">Finalize</a></li><li class="navListItem"><a class="navItem" href="/docs/init_as.html">Init As</a></li><li class="navListItem"><a class="navItem" href="/docs/traits.html">Traits</a></li><li class="navListItem"><a class="navItem" href="/docs/parameters.html">Parameters</a></li><li class="navListItem"><a class="navItem" href="/docs/execution_order.html">Execution Order</a></li></ul></div><div class="navGroup navGroupActive"><h3>Adapters</h3><ul><li class="navListItem"><a class="navItem" href="/docs/supported_adapters.html">Supported Adapters</a></li><li class="navListItem"><a class="navItem" href="/docs/active_record.html">Active Record</a></li><li class="navListItem"><a class="navItem" href="/docs/sequel.html">Sequel</a></li></ul></div><div class="navGroup navGroupActive"><h3>Features</h3><ul><li class="navListItem"><a class="navItem" href="/docs/implicit_cloner.html">Implicit Cloner</a></li><li class="navListItem"><a class="navItem" href="/docs/inline_configuration.html">Inline Configuration</a></li><li class="navListItem"><a class="navItem" href="/docs/architecture.html">Architecture</a></li><li class="navListItem navListItemActive"><a class="navItem navItemActive" href="/docs/testing.html">Testing</a></li><li class="navListItem"><a class="navItem" href="/docs/customization.html">Customization</a></li></ul></div></div></section></div><script>
+          var toggler = document.getElementById('navToggler');
+          var nav = document.getElementById('docsNav');
+          toggler.onclick = function() {
+            nav.classList.toggle('docsSliderActive');
+          };
+        </script></nav></div><div class="container mainContainer"><div class="wrapper"><div class="post"><header class="postHeader"><h1>Testing</h1></header><article><div><span><p>Clowne provides specific tools to help you test your cloners.</p>
+<p>The main goal is to make it possible to test different cloning phases separately and avoid <em>heavy</em> tests setup phases.</p>
+<p>Let's consider the following models and cloners:</p>
+<pre><code class="hljs css ruby"><span class="hljs-comment"># app/models/user.rb</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">User</span> &lt; ApplicationRecord</span>
+  has_one <span class="hljs-symbol">:profile</span>
+  has_many <span class="hljs-symbol">:posts</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-comment"># app/models/post.rb</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Post</span> &lt; ApplicationRecord</span>
+  has_many <span class="hljs-symbol">:comments</span>
+  has_many <span class="hljs-symbol">:votes</span>
+
+  scope <span class="hljs-symbol">:draft</span>, -&gt; { where(<span class="hljs-symbol">draft:</span> <span class="hljs-literal">true</span>) }
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-comment"># app/cloners/user_cloner.rb</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UserCloner</span> &lt; Clowne::Cloner</span>
+  <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ProfileCloner</span></span>
+    nullify <span class="hljs-symbol">:rating</span>
+  <span class="hljs-keyword">end</span>
+
+  include_association <span class="hljs-symbol">:profile</span>, <span class="hljs-symbol">clone_with:</span> ProfileCloner
+
+  nullify <span class="hljs-symbol">:email</span>
+
+  finalize <span class="hljs-keyword">do</span> <span class="hljs-params">|_, record, name: <span class="hljs-literal">nil</span>, **|</span>
+    record.name = name <span class="hljs-keyword">unless</span> name.<span class="hljs-literal">nil</span>?
+  <span class="hljs-keyword">end</span>
+
+  trait <span class="hljs-symbol">:copy</span> <span class="hljs-keyword">do</span>
+    init_as <span class="hljs-keyword">do</span> <span class="hljs-params">|user, target:, **|</span>
+      <span class="hljs-comment"># copy name</span>
+      target.name = user.name
+      target
+    <span class="hljs-keyword">end</span>
+  <span class="hljs-keyword">end</span>
+
+  trait <span class="hljs-symbol">:with_posts</span> <span class="hljs-keyword">do</span>
+    include_association <span class="hljs-symbol">:posts</span>, <span class="hljs-symbol">:draft</span>, <span class="hljs-symbol">traits:</span> <span class="hljs-symbol">:mark_as_copy</span>
+  <span class="hljs-keyword">end</span>
+
+  trait <span class="hljs-symbol">:with_popular_posts</span> <span class="hljs-keyword">do</span>
+    include_association <span class="hljs-symbol">:posts</span>, (lambda <span class="hljs-keyword">do</span> <span class="hljs-params">|params|</span>
+      where(<span class="hljs-string">'rating &gt; ?'</span>, params[<span class="hljs-symbol">:min_rating</span>])
+    <span class="hljs-keyword">end</span>)
+  <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+
+<span class="hljs-comment"># app/cloners/post_cloner.rb</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PostCloner</span> &lt; Clowne::Cloner</span>
+  include_association <span class="hljs-symbol">:comments</span>
+
+  trait <span class="hljs-symbol">:mark_as_copy</span> <span class="hljs-keyword">do</span> <span class="hljs-params">|_, record|</span>
+    record.title += <span class="hljs-string">' (copy)'</span>
+  <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+</code></pre>
+<h2><a class="anchor" aria-hidden="true" name="getting-started"></a><a href="#getting-started" aria-hidden="true" class="hash-link" ><svg aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Getting started</h2>
+<p>Currently, only <a href="http://rspec.info/">RSpec</a> is supported.</p>
+<p>Add this line to your <code>spec_helper.rb</code> (or <code>rails_helper.rb</code>):</p>
+<pre><code class="hljs css ruby"><span class="hljs-keyword">require</span> <span class="hljs-string">'clowne/rspec'</span>
+</code></pre>
+<h2><a class="anchor" aria-hidden="true" name="configuration-matchers"></a><a href="#configuration-matchers" aria-hidden="true" class="hash-link" ><svg aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Configuration matchers</h2>
+<p>There are several matchers that allow you to verify the cloner configuration.</p>
+<h3><a class="anchor" aria-hidden="true" name="clone-associations"></a><a href="#clone-associations" aria-hidden="true" class="hash-link" ><svg aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a><code>clone_associations</code></h3>
+<p>This matcher vefifies that your cloner includes the specified associations:</p>
+<pre><code class="hljs css ruby"><span class="hljs-comment"># spec/cloners/user_cloner_spec.rb</span>
+RSpec.describe UserCloner, <span class="hljs-symbol">type:</span> <span class="hljs-symbol">:cloner</span> <span class="hljs-keyword">do</span>
+  subject { described_class }
+
+  specify <span class="hljs-keyword">do</span>
+    <span class="hljs-comment"># checks that only the specified associations is included</span>
+    is_expected.to clone_associations(<span class="hljs-symbol">:profile</span>)
+
+    <span class="hljs-comment"># with traits</span>
+    is_expected.to clone_associations(<span class="hljs-symbol">:profile</span>, <span class="hljs-symbol">:posts</span>)
+      .with_traits(<span class="hljs-symbol">:with_posts</span>)
+
+    <span class="hljs-comment"># raises when there are some unspecified associations</span>
+    is_expected.to clone_associations(<span class="hljs-symbol">:profile</span>)
+      .with_traits(<span class="hljs-symbol">:with_posts</span>)
+    <span class="hljs-comment">#=&gt; raises RSpec::Expectations::ExpectationNotMetError</span>
+  <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+</code></pre>
+<h3><a class="anchor" aria-hidden="true" name="clone-association"></a><a href="#clone-association" aria-hidden="true" class="hash-link" ><svg aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a><code>clone_association</code></h3>
+<p>This matcher allows to verify the specified association options:</p>
+<pre><code class="hljs css ruby"><span class="hljs-comment"># spec/cloners/user_cloner_spec.rb</span>
+RSpec.describe UserCloner, <span class="hljs-symbol">type:</span> <span class="hljs-symbol">:cloner</span> <span class="hljs-keyword">do</span>
+  subject { described_class }
+
+  specify <span class="hljs-keyword">do</span>
+    <span class="hljs-comment"># simply check that association is included</span>
+    is_expected.to clone_association(<span class="hljs-symbol">:profile</span>)
+
+    <span class="hljs-comment"># check options</span>
+    is_expected.to clone_association(
+      <span class="hljs-symbol">:profile</span>,
+      <span class="hljs-symbol">clone_with:</span> described_class::ProfileCloner
+    )
+
+    <span class="hljs-comment"># with traits, scope and activated trait</span>
+    is_expected.to clone_association(
+      <span class="hljs-symbol">:posts</span>,
+      <span class="hljs-symbol">traits:</span> <span class="hljs-symbol">:mark_as_copy</span>,
+      <span class="hljs-symbol">scope:</span> <span class="hljs-symbol">:draft</span>
+    ).with_traits(<span class="hljs-symbol">:with_posts</span>)
+  <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+</code></pre>
+<p><strong>NOTE:</strong> <code>clone_associations</code>/<code>clone_association</code> matchers are only available in groups marked with <code>type: :cloner</code> tag.</p>
+<p>Clowne automaticaly marks all specs in <code>spec/cloners</code> folder with <code>type: :cloner</code>. Otherwise you have to add this tag you.</p>
+<h2><a class="anchor" aria-hidden="true" name="using-partial-cloning"></a><a href="#using-partial-cloning" aria-hidden="true" class="hash-link" ><svg aria-hidden="true" height="16" version="1.1" viewBox="0 0 16 16" width="16"><path fill-rule="evenodd" d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>Using partial cloning</h2>
+<p>Under the hood, Clowne builds a <a href="/docs/architecture.html">compilation plan</a> which is used to clone the record.</p>
+<p>Plan is a set of <em>actions</em> (such as <code>nullify</code>, <code>finalize</code>, <code>association</code>, <code>init_as</code>) which are applied to the record.</p>
+<p>Most of the time these actions don't depend on each other, thus we can test them separately:</p>
+<pre><code class="hljs css ruby"><span class="hljs-comment"># spec/cloners/user_cloner_spec.rb</span>
+RSpec.describe UserCloner, <span class="hljs-symbol">type:</span> <span class="hljs-symbol">:cloner</span> <span class="hljs-keyword">do</span>
+  subject(<span class="hljs-symbol">:user</span>) { create <span class="hljs-symbol">:user</span>, <span class="hljs-symbol">name:</span> <span class="hljs-string">'Bombon'</span> }
+
+  specify <span class="hljs-string">'simple case'</span> <span class="hljs-keyword">do</span>
+    <span class="hljs-comment"># apply only the specified part of the plan</span>
+    cloned_user = described_class.partial_apply(<span class="hljs-symbol">:nullify</span>, user)
+    expect(cloned_user.email).to be_nil
+    <span class="hljs-comment"># finalize wasn't applied</span>
+    expect(cloned_user.name).to eq <span class="hljs-string">'Bombon'</span>
+  <span class="hljs-keyword">end</span>
+
+  specify <span class="hljs-string">'with params'</span> <span class="hljs-keyword">do</span>
+    cloned_user = described_class.partial_apply(<span class="hljs-symbol">:finalize</span>, user, <span class="hljs-symbol">name:</span> <span class="hljs-string">'new name'</span>)
+    <span class="hljs-comment"># nullify actions were not applied!</span>
+    expect(cloned_user.email).to eq user.email
+    <span class="hljs-comment"># finalize was applied</span>
+    expect(cloned_user.name).to eq <span class="hljs-string">'new name'</span>
+  <span class="hljs-keyword">end</span>
+
+  specify <span class="hljs-string">'with traits'</span> <span class="hljs-keyword">do</span>
+    a_user = create(<span class="hljs-symbol">:user</span>, <span class="hljs-symbol">name:</span> <span class="hljs-string">'Dindon'</span>)
+    cloned_user = described_class.partial_apply(<span class="hljs-symbol">:init_as</span>, user, <span class="hljs-symbol">traits:</span> <span class="hljs-symbol">:copy</span>, <span class="hljs-symbol">target:</span> a_user)
+    <span class="hljs-comment"># returned user is the same as target</span>
+    expect(cloned_user).to be_eql(a_user)
+    expect(cloned_user.name).to eq <span class="hljs-string">'Bombon'</span>
+  <span class="hljs-keyword">end</span>
+
+  specify <span class="hljs-string">'associations'</span> <span class="hljs-keyword">do</span>
+    create(<span class="hljs-symbol">:post</span>, <span class="hljs-symbol">user:</span> user, <span class="hljs-symbol">rating:</span> <span class="hljs-number">1</span>, <span class="hljs-symbol">text:</span> <span class="hljs-string">'Boom Boom'</span>)
+    create(<span class="hljs-symbol">:post</span>, <span class="hljs-symbol">user:</span> user, <span class="hljs-symbol">rating:</span> <span class="hljs-number">2</span>, <span class="hljs-symbol">text:</span> <span class="hljs-string">'Flying Dumplings'</span>)
+
+    <span class="hljs-comment"># you can specify which associations to include (you can use array)</span>
+    <span class="hljs-comment"># to apply all associations write:</span>
+    <span class="hljs-comment">#   plan.apply(:association)</span>
+    cloned_user = described_class.partial_apply(
+      <span class="hljs-string">'association.posts'</span>, user, <span class="hljs-symbol">traits:</span> <span class="hljs-symbol">:with_popular_posts</span>, <span class="hljs-symbol">min_rating:</span> <span class="hljs-number">1</span>
+    )
+
+    expect(cloned_user.posts.size).to eq <span class="hljs-number">1</span>
+    expect(cloned_user.posts.first.text).to eq <span class="hljs-string">'Flying Dumplings'</span>
+  <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+</code></pre>
+</span></div></article></div><div class="docs-prevnext"><a class="docs-prev button" href="architecture.html">← Architecture</a><a class="docs-next button" href="customization.html">Customization →</a></div></div></div></div><footer class="nav-footer" id="footer"><section class="sitemap"><div class="footer--block"><h5>Project</h5><div class="footer--list--item"><a href="https://github.com/palkan/clowne" target="_blank">GitHub</a></div><div class="footer--list--item"><a href="https://rubygems.org/gems/clowne" target="_blank">RubyGems</a></div></div><div class="footer--block"><h5>Resources</h5><div class="footer--list--item"><a href="https://evilmartians.com/chronicles/clowne-clone-ruby-models-with-a-smile" target="_blank">Clowne: clone Ruby models with a smile</a></div></div><div class="footer--block legals"><p class="footer--copy"><span class="copy">2018</span> <a href="https://evilmartians.com" target="_blank">Evil Martians</a></p><div class="footer--list--item"><p>Released under the <a href="https://github.com/palkan/clowne/blob/master/LICENSE.txt" target="_blank">MIT license</a></p></div><div class="footer--list--item"><p>Built with <a href="https://docusaurus.io" target="_blank">Docusaurus</a></p></div></div></section><div class="footer--humanoids"><div class="humanoids"><div class="humanoids__martian"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 92"><path fill="#E2CBB5" d="M26 88L8 78l18-10"></path><path fill="#9FA628" d="M94 92v-6H44c-5.5 0-10-4.5-10-10s4.5-10 10-10h50V32c0-14-7.9-22-22-22H48c-14.1 0-22 8-22 22v60h68z"></path><circle fill="#FFF" cx="48" cy="50" r="8"></circle><circle fill="#FFF" cx="72" cy="50" r="8"></circle><circle fill="#BF6C35" cx="48" cy="50" r="4"></circle><circle fill="#BF6C35" cx="72" cy="50" r="4"></circle><g fill="#663F4C"><path d="M48 60c-5.5 0-10-4.5-10-10s4.5-10 10-10 10 4.5 10 10-4.5 10-10 10zm0-16c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6zM82 50c0 5.5-4.5 10-10 10s-10-4.5-10-10 4.5-10 10-10 10 4.5 10 10zm-16 0c0 3.3 2.7 6 6 6s6-2.7 6-6-2.7-6-6-6-6 2.7-6 6z"></path><path d="M102 8c-3.8 0-6-2.2-6-6 0-1.1-.9-2-2-2s-2 .9-2 2c0 2.2.5 4.1 1.5 5.7L88.2 13c-4-3.3-9.5-5-16.2-5H48c-6.7 0-12.2 1.7-16.2 4.9l-5.3-5.3C27.5 6.1 28 4.2 28 2c0-1.1-.9-2-2-2s-2 .9-2 2c0 3.8-2.2 6-6 6-1.1 0-2 .9-2 2s.9 2 2 2c2.2 0 4.1-.5 5.7-1.5l5.3 5.3c-3.2 4-4.9 9.5-4.9 16.2v34.8L3.9 78 24 89v3h4V32c0-12.9 7.1-20 20-20h24c12.9 0 20 7.1 20 20v32H44c-6.6 0-12 5.4-12 12s5.4 12 12 12h48v4h4v-8h-2l-4-8-4 8h-4l-4-8-4 8h-4l-4-8-4 8h-4l-4-8-4 8h-4l-4-8-3.1 6.2C37.1 80.7 36 78.5 36 76c0-4.4 3.6-8 8-8l4 8 4-8h4l4 8 4-8h4l4 8 4-8h4l4 8 4-8h8V32c0-6.7-1.7-12.2-4.9-16.2l5.3-5.3c1.6 1 3.5 1.5 5.7 1.5 1.1 0 2-.9 2-2s-1-2-2.1-2zM24 84.4L12.1 78 24 71.4v13z"></path></g></svg></div><div class="humanoids__human"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 92"><path fill="#E2CBB5" d="M14 62v30h68v-6H32c-5.5 0-10-4.5-10-10s4.5-10 10-10h50v-4c4 0 8-3.6 8-8s-4-8-8-8V32c0-14-7.9-22-22-22H36c-14.1 0-22 8-22 22v14c-4 0-8 3.6-8 8s4 8 8 8z"></path><circle fill="#FFF" cx="36" cy="50" r="8"></circle><circle fill="#FFF" cx="60" cy="50" r="8"></circle><circle fill="#9FA628" cx="36" cy="50" r="4"></circle><circle fill="#9FA628" cx="60" cy="50" r="4"></circle><path fill="#BF6C35" d="M60 10H36c-14.1 0-22 8-22 22v2l4-4 6 6 6-6 6 6 6-6 6 6 6-6 6 6 6-6 6 6 6-6 4 4v-2c0-14-7.9-22-22-22z"></path><g fill="#663F4C"><path d="M36 60c-5.5 0-10-4.5-10-10s4.5-10 10-10 10 4.5 10 10-4.5 10-10 10zm0-16c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6zM60 60c-5.5 0-10-4.5-10-10s4.5-10 10-10 10 4.5 10 10-4.5 10-10 10zm0-16c-3.3 0-6 2.7-6 6s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6z"></path><path d="M12 63.8V92h4V32c0-12.9 7.1-20 20-20h24c12.9 0 20 7.1 20 20v32H32c-6.6 0-12 5.4-12 12s5.4 12 12 12h48v4h4v-8H74v-1c0-1.7-1.3-3-3-3s-3 1.3-3 3v1h-6v-1c0-1.7-1.3-3-3-3s-3 1.3-3 3v1h-6v-1c0-1.7-1.3-3-3-3s-3 1.3-3 3v1h-6v-1c0-1.7-1.3-3-3-3s-3 1.3-3 3v1c-4 0-8-3.6-8-8s3.6-8 8-8h6v1c0 1.7 1.3 3 3 3s3-1.3 3-3v-1h6v1c0 1.7 1.3 3 3 3s3-1.3 3-3v-1h6v1c0 1.7 1.3 3 3 3s3-1.3 3-3v-1h6v1c0 1.7 1.3 3 3 3s3-1.3 3-3v-1h4v-4.2c5-.9 8-5 8-9.8s-3-8.9-8-9.8V32c0-15.3-8.7-24-24-24H36c-15.3 0-24 8.7-24 24v12.2c-5 .9-8 5-8 9.8s3 8.9 8 9.8zm72-15.5c2 .8 4 3 4 5.7s-2 4.8-4 5.7V48.3zm-72 0v11.3c-2-.8-4-3-4-5.7s2-4.7 4-5.6z"></path></g></svg></div></div></div></footer></div><script>
+              (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+              ga('create', 'UA-104346673-2', 'auto');
+              ga('send', 'pageview');
+            </script></body></html>
